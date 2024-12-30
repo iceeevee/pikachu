@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数独游戏</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      margin: 20px 0;
+    }
+    .sudoku-container {
+      display: grid;
+      grid-template-columns: repeat(9, 40px);
+      grid-gap: 2px;
+      justify-content: center;
+      margin: 20px auto;
+      background-color: #000;
+      padding: 2px;
+      width: fit-content;
+    }
+    .cell {
+      width: 40px;
+      height: 40px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      border: 1px solid #ccc;
+      outline: none;
+    }
+    .cell[readonly] {
+      background-color: #ddd;
+      color: #333;
+    }
+    .cell:focus {
+      background-color: #f0f8ff;
+    }
+    .fireworks {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    .popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 20px 40px;
+      font-size: 24px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      z-index: 2000;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>数独游戏</h1>
+  <div class="sudoku-container" id="sudoku-container"></div>
+  <div class="popup" id="popup">🎉 2025 Happy New Year 🎉</div>
+  <canvas class="fireworks" id="fireworks"></canvas>
+
+  <script>
+    const sudokuContainer = document.getElementById('sudoku-container');
+    const popup = document.getElementById('popup');
+    const canvas = document.getElementById('fireworks');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    // 随机生成完整数独棋盘
+    function generateSudoku() {
+      const base = 3;
+      const side = base * base;
+
+      // Pattern for a baseline Sudoku
+      function pattern(row, col) {
+        return (base * (row % base) + Math.floor(row / base) + col) % side;
+      }
+
+      // Shuffle rows, columns, and numbers
+      function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+      }
+
+      const rows = [...Array(side).keys()];
+      const cols = [...Array(side).keys()];
+      const nums = [...Array(side).keys()].map(n => n + 1);
+
+      shuffle(rows);
+      shuffle(cols);
+      shuffle(nums);
+
+      // Build the board
+      return rows.map(row =>
+        cols.map(col =>
+          nums[pattern(row, col)]
+        )
+      );
+    }
+
+    // 挖空数字2和5
+    function createEditableBoard(board) {
+      return board.map(row =>
+        row.map(num => (num === 2 || num === 5 ? 0 : num))
+      );
+    }
+
+    // 初始化数独棋盘
+    function initSudoku(board, editable) {
+      sudokuContainer.innerHTML = ''; // 清空容器
+      for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+          const cell = document.createElement('input');
+          cell.type = 'text';
+          cell.maxLength = 1;
+          cell.classList.add('cell');
+          if (editable[row][col] === 0) {
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            cell.oninput = (e) => validateInput(e, cell, board);
+          } else {
+            cell.value = editable[row][col];
+            cell.readOnly = true;
+          }
+          sudokuContainer.appendChild(cell);
+        }
+      }
+    }
+
+    // 验证输入是否正确
+    function validateInput(e, cell, board) {
+      const value = e.target.value;
+      const row = parseInt(cell.dataset.row);
+      const col = parseInt(cell.dataset.col);
+
+      if (value !== '2' && value !== '5') {
+        alert('输入错误，只能输入数字2或5！');
+        cell.value = '';
+        return;
+      }
+
+      if (parseInt(value) !== board[row][col]) {
+        alert('数字不正确，请重新输入！');
+        cell.value = '';
+        return;
+      }
+
+      checkVictory(board);
+    }
+
+    // 检查是否完成游戏
+    function checkVictory(board) {
+      const cells = document.querySelectorAll('.cell');
+      for (let cell of cells) {
+        const row = cell.dataset.row;
+        const col = cell.dataset.col;
+        if (row !== undefined && col !== undefined) {
+          if (parseInt(cell.value) !== board[row][col]) {
+            return;
+          }
+        }
+      }
+      showCelebration();
+    }
+
+    // 显示庆祝效果
+    function showCelebration() {
+      popup.style.display = 'block';
+      const particles = [];
+
+      function createParticle(x, y, color) {
+        const particle = {
+          x,
+          y,
+          color,
+          radius: Math.random() * 5 + 2,
+          speedX: Math.random() * 4 - 2,
+          speedY: Math.random() * 4 - 2,
+          alpha: 1
+        };
+        particles.push(particle);
+      }
+
+      function renderParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach((particle, index) => {
+          particle.x += particle.speedX;
+          particle.y += particle.speedY;
+          particle.alpha -= 0.01;
+
+          if (particle.alpha <= 0) {
+            particles.splice(index, 1);
+          } else {
+            ctx.beginPath();
+            ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${particle.color}, ${particle.alpha})`;
+            ctx.fill();
+          }
+        });
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        renderParticles();
+      }
+
+      setInterval(() => {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height / 2;
+        const color = `${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}`;
+        for (let i = 0; i < 100; i++) {
+          createParticle(x, y, color);
+        }
+      }, 200);
+
+      animate();
+    }
+
+    // 初始化随机数独游戏
+    const board = generateSudoku();
+    const editableBoard = createEditableBoard(board);
+    initSudoku(board, editableBoard);
+  </script>
+</body>
+</html>
